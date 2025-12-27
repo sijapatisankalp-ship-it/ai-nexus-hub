@@ -1,1 +1,7 @@
 project_id = "tnnohlerwgkurvfelevo"
+
+[functions.chat]
+verify_jwt = false
+
+[functions.boost-prompt]
+verify_jwt = false
