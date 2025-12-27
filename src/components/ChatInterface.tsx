@@ -6,7 +6,9 @@ import { ProjectModeSelector } from './ProjectModeSelector';
 import { ChatInput } from './ChatInput';
 import { ComparisonView } from './ComparisonView';
 import { Message, ModelResponse } from '@/types/chat';
-import { AI_MODELS, PROJECT_MODES, BOOST_SYSTEM_PROMPT } from '@/data/models';
+import { AI_MODELS, PROJECT_MODES } from '@/data/models';
+import { streamChat, boostPrompt } from '@/lib/ai';
+import { useToast } from '@/hooks/use-toast';
 
 export const ChatInterface = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o', 'claude-sonnet']);
@@ -15,6 +17,7 @@ export const ChatInterface = () => {
   const [responses, setResponses] = useState<Record<string, ModelResponse>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [currentUserMessage, setCurrentUserMessage] = useState('');
+  const { toast } = useToast();
 
   const handleToggleModel = (modelId: string) => {
     setSelectedModels(prev => 
@@ -24,50 +27,53 @@ export const ChatInterface = () => {
     );
   };
 
-  const simulateStreamingResponse = async (modelId: string, userMessage: string) => {
-    const model = AI_MODELS.find(m => m.id === modelId);
-    const mode = PROJECT_MODES.find(m => m.id === projectMode);
+  const streamModelResponse = async (modelId: string, userMessage: string) => {
+    const messageHistory = [{ role: 'user' as const, content: userMessage }];
     
-    // Simulate thinking delay
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-
-    // Generate a mock response based on the model and mode
-    const responses: Record<string, string> = {
-      'gpt-4o': `Based on your query "${userMessage}", here's my analysis:\n\n${mode?.id === 'coding' ? 'Looking at this from a technical perspective, ' : mode?.id === 'marketing' ? 'From a marketing standpoint, ' : ''}I'll provide a comprehensive response.\n\n1. **Key Points**: The main aspects to consider here involve understanding the context and requirements clearly.\n\n2. **Analysis**: After careful consideration, I believe the best approach would be to break this down into manageable components.\n\n3. **Recommendations**: I suggest starting with a structured plan and iterating based on feedback.\n\nWould you like me to elaborate on any of these points?`,
-      
-      'claude-sonnet': `Thank you for your question about "${userMessage}". Let me share my thoughts:\n\n${mode?.id === 'fact-check' ? '🔍 **Fact Check Analysis**\n\n' : ''}I appreciate the nuanced nature of this query. Here's my perspective:\n\n**Understanding**: First, it's important to recognize the underlying assumptions in your question.\n\n**Considerations**:\n• Context matters significantly here\n• Multiple valid approaches exist\n• Trade-offs should be carefully evaluated\n\n**My Recommendation**: I'd suggest approaching this thoughtfully, considering both immediate needs and long-term implications.\n\nIs there a specific aspect you'd like me to dive deeper into?`,
-      
-      'gemini-pro': `Analyzing your request: "${userMessage}"\n\n${mode?.id === 'creative' ? '🎨 **Creative Perspective**\n\n' : ''}Here's what I've found:\n\n📊 **Overview**\nThis is an interesting question that touches on several important areas.\n\n🔑 **Key Insights**\n1. The fundamental principle here is understanding the core problem\n2. Multiple solutions exist, each with pros and cons\n3. Context-specific factors will influence the best choice\n\n💡 **Suggestions**\n- Start with clear requirements\n- Test and iterate\n- Gather feedback early\n\nLet me know if you need more details!`,
-      
-      'deepseek': `Query received: "${userMessage}"\n\n${mode?.id === 'coding' ? '```\n// Code Analysis Mode\n```\n\n' : ''}**Deep Analysis:**\n\nI've processed your request and here's my detailed response:\n\n**Technical Breakdown:**\n- Component 1: Core logic analysis\n- Component 2: Edge case handling\n- Component 3: Optimization considerations\n\n**Implementation Notes:**\n1. Consider the scalability implications\n2. Memory and performance trade-offs exist\n3. Testing strategy should be comprehensive\n\n**Conclusion:**\nThe optimal approach depends on your specific constraints. I'd recommend starting with a minimal viable solution and expanding from there.\n\nNeed me to elaborate on any technical details?`
-    };
-
-    const fullResponse = responses[modelId] || `Response from ${model?.name} for: "${userMessage}"`;
-    
-    // Simulate streaming by updating character by character
-    let currentContent = '';
-    for (let i = 0; i < fullResponse.length; i++) {
-      currentContent += fullResponse[i];
-      setResponses(prev => ({
-        ...prev,
-        [modelId]: {
-          modelId,
-          content: currentContent,
-          isStreaming: true,
-        }
-      }));
-      await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 20));
-    }
-
-    // Mark as complete
-    setResponses(prev => ({
-      ...prev,
-      [modelId]: {
-        modelId,
-        content: fullResponse,
-        isStreaming: false,
+    await streamChat(
+      modelId,
+      messageHistory,
+      projectMode,
+      {
+        onDelta: (delta) => {
+          setResponses(prev => ({
+            ...prev,
+            [modelId]: {
+              modelId,
+              content: (prev[modelId]?.content || '') + delta,
+              isStreaming: true,
+            }
+          }));
+        },
+        onDone: () => {
+          setResponses(prev => ({
+            ...prev,
+            [modelId]: {
+              ...prev[modelId],
+              isStreaming: false,
+            }
+          }));
+        },
+        onError: (error) => {
+          console.error(`Error for model ${modelId}:`, error);
+          setResponses(prev => ({
+            ...prev,
+            [modelId]: {
+              modelId,
+              content: '',
+              isStreaming: false,
+              error: error,
+            }
+          }));
+          
+          toast({
+            title: `Error from ${AI_MODELS.find(m => m.id === modelId)?.name || modelId}`,
+            description: error,
+            variant: 'destructive',
+          });
+        },
       }
-    }));
+    );
   };
 
   const handleSend = async (message: string) => {
@@ -101,32 +107,36 @@ export const ChatInterface = () => {
     // Start streaming for all models concurrently
     try {
       await Promise.all(
-        selectedModels.map(modelId => simulateStreamingResponse(modelId, message))
+        selectedModels.map(modelId => streamModelResponse(modelId, message))
       );
     } catch (error) {
       console.error('Error generating responses:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to get AI responses. Please try again.',
+        variant: 'destructive',
+      });
     }
 
     setIsLoading(false);
   };
 
   const handleBoost = async (message: string): Promise<string> => {
-    // Simulate prompt boosting
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Enhanced prompt based on the mode
-    const mode = PROJECT_MODES.find(m => m.id === projectMode);
-    const modeContext = mode?.id === 'coding' 
-      ? 'from a software engineering perspective, considering best practices, performance, and maintainability'
-      : mode?.id === 'marketing'
-      ? 'with a focus on conversion optimization, SEO best practices, and persuasive copywriting using the AIDA framework'
-      : mode?.id === 'fact-check'
-      ? 'with emphasis on verifiable sources, logical analysis, and identification of potential biases'
-      : mode?.id === 'creative'
-      ? 'with creative flair, original thinking, and engaging storytelling elements'
-      : 'with clarity, structure, and actionable insights';
-
-    return `Please provide a comprehensive analysis ${modeContext}.\n\nOriginal request: "${message}"\n\nRequirements:\n1. Break down the response into clear sections\n2. Provide specific, actionable recommendations\n3. Include relevant examples where applicable\n4. Consider potential edge cases or limitations\n5. Summarize key takeaways at the end`;
+    try {
+      const boosted = await boostPrompt(message);
+      toast({
+        title: 'Prompt Enhanced',
+        description: 'Your prompt has been optimized for better AI responses.',
+      });
+      return boosted;
+    } catch (error) {
+      toast({
+        title: 'Boost Failed',
+        description: 'Could not enhance prompt. Using original.',
+        variant: 'destructive',
+      });
+      return message;
+    }
   };
 
   const handleRetry = (modelId: string) => {
@@ -139,7 +149,7 @@ export const ChatInterface = () => {
           isStreaming: true,
         }
       }));
-      simulateStreamingResponse(modelId, currentUserMessage);
+      streamModelResponse(modelId, currentUserMessage);
     }
   };
 
@@ -190,10 +200,10 @@ export const ChatInterface = () => {
                 </p>
                 <div className="flex flex-wrap justify-center gap-2 text-sm">
                   <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    Side-by-side comparison
+                    Real AI streaming
                   </span>
                   <span className="px-3 py-1 rounded-full bg-accent/10 text-accent border border-accent/20">
-                    Real-time streaming
+                    GPT & Gemini models
                   </span>
                   <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border">
                     Prompt boosting
