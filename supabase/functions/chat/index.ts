@@ -1,16 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation schema
+const messageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().min(1, "Message content cannot be empty").max(8000, "Message content too long")
+});
+
+const chatRequestSchema = z.object({
+  messages: z.array(messageSchema).min(1, "At least one message required").max(50, "Too many messages"),
+  modelId: z.enum(['gpt-4o', 'claude-sonnet', 'gemini-pro', 'deepseek']),
+  systemPrompt: z.string().max(4000, "System prompt too long").optional()
+});
+
 // Model mapping from frontend IDs to Lovable AI model names
 const MODEL_MAP: Record<string, string> = {
   'gpt-4o': 'openai/gpt-5-mini',
-  'claude-sonnet': 'google/gemini-2.5-flash', // Claude equivalent
+  'claude-sonnet': 'google/gemini-2.5-flash',
   'gemini-pro': 'google/gemini-2.5-pro',
-  'deepseek': 'google/gemini-2.5-flash-lite', // DeepSeek equivalent
+  'deepseek': 'google/gemini-2.5-flash-lite',
 };
 
 serve(async (req) => {
@@ -20,7 +33,25 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, modelId, systemPrompt } = await req.json();
+    const body = await req.json();
+    
+    // Validate input
+    const validationResult = chatRequestSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.issues);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input',
+        details: validationResult.error.issues.map(issue => ({
+          path: issue.path.join('.'),
+          message: issue.message
+        }))
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { messages, modelId, systemPrompt } = validationResult.data;
     
     console.log(`Chat request for model: ${modelId}`);
     
