@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const boostRequestSchema = z.object({
+  prompt: z.string()
+    .min(1, "Prompt cannot be empty")
+    .max(4000, "Prompt too long (max 4000 characters)")
+    .transform(s => s.trim())
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,7 +20,25 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
+    
+    // Validate input
+    const validationResult = boostRequestSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.issues);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input',
+        details: validationResult.error.issues.map(issue => ({
+          path: issue.path.join('.'),
+          message: issue.message
+        }))
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { prompt } = validationResult.data;
     
     console.log('Boost request received');
     
@@ -37,7 +64,7 @@ Return ONLY the enhanced prompt text, nothing else. Do not include any explanati
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite', // Fast model for quick prompt enhancement
+        model: 'google/gemini-2.5-flash-lite',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Enhance this prompt: "${prompt}"` },
