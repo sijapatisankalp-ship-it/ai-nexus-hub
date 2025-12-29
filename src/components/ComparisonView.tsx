@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ResponseColumn } from './ResponseColumn';
-import { Message, ModelResponse } from '@/types/chat';
+import { ModelResponse } from '@/types/chat';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,11 @@ export const ComparisonView = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Reset active index when selected models change
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [selectedModels.length]);
+
   const handlePrev = () => {
     setActiveIndex(prev => Math.max(0, prev - 1));
   };
@@ -41,9 +46,9 @@ export const ComparisonView = ({
   // Mobile card-swipe view
   if (isMobile) {
     return (
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative h-full flex flex-col overflow-hidden">
         {/* Navigation dots */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+        <div className="flex-shrink-0 py-2 flex justify-center gap-2">
           {selectedModels.map((_, index) => (
             <button
               key={index}
@@ -58,46 +63,49 @@ export const ComparisonView = ({
           ))}
         </div>
 
-        {/* Navigation arrows */}
-        {activeIndex > 0 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 glass"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        )}
-        {activeIndex < selectedModels.length - 1 && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 glass"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        )}
+        {/* Cards container */}
+        <div className="flex-1 relative min-h-0 overflow-hidden">
+          {/* Navigation arrows */}
+          {activeIndex > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrev}
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 glass h-8 w-8"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {activeIndex < selectedModels.length - 1 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNext}
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 glass h-8 w-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
 
-        {/* Cards */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeIndex}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.2 }}
-            className="h-full p-4 pt-8"
-          >
-            <ResponseColumn
-              modelId={selectedModels[activeIndex]}
-              response={responses[selectedModels[activeIndex]] || null}
-              userMessage={userMessage}
-              onRetry={onRetry ? () => onRetry(selectedModels[activeIndex]) : undefined}
-            />
-          </motion.div>
-        </AnimatePresence>
+          {/* Cards */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeIndex}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.2 }}
+              className="h-full px-3 py-2 overflow-hidden"
+            >
+              <ResponseColumn
+                modelId={selectedModels[activeIndex]}
+                response={responses[selectedModels[activeIndex]] || null}
+                userMessage={userMessage}
+                onRetry={onRetry ? () => onRetry(selectedModels[activeIndex]) : undefined}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     );
   }
@@ -106,7 +114,7 @@ export const ComparisonView = ({
   return (
     <div 
       ref={scrollRef}
-      className="flex-1 flex gap-4 p-4 overflow-x-auto scrollbar-thin"
+      className="h-full flex gap-4 p-4 overflow-x-auto scrollbar-thin"
     >
       {selectedModels.map((modelId, index) => (
         <motion.div
@@ -114,7 +122,7 @@ export const ComparisonView = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
-          className="flex-1 min-w-[300px] max-w-[500px]"
+          className="flex-1 min-w-[300px] max-w-[500px] h-full"
         >
           <ResponseColumn
             modelId={modelId}

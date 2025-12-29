@@ -9,8 +9,13 @@ import { Message, ModelResponse } from '@/types/chat';
 import { AI_MODELS, PROJECT_MODES } from '@/data/models';
 import { streamChat, boostPrompt } from '@/lib/ai';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
-export const ChatInterface = () => {
+type ChatInterfaceProps = {
+  isMobile?: boolean;
+};
+
+export const ChatInterface = ({ isMobile = false }: ChatInterfaceProps) => {
   const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o', 'claude-sonnet']);
   const [projectMode, setProjectMode] = useState('general');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -158,10 +163,13 @@ export const ChatInterface = () => {
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 p-4 border-b border-glass-border/50 glass">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
+      <header className={cn(
+        "flex-shrink-0 p-4 border-b border-glass-border/50 glass",
+        isMobile && "pt-16" // Extra padding for mobile menu button
+      )}>
+        <div className="flex flex-col gap-4">
           <div className="flex-1">
-            <h2 className="text-lg font-semibold mb-2 md:mb-0">Select AI Models</h2>
+            <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Select AI Models</h2>
             <ModelSelector
               selectedModels={selectedModels}
               onToggleModel={handleToggleModel}
@@ -185,27 +193,27 @@ export const ChatInterface = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 flex items-center justify-center p-8"
+              className="flex-1 flex items-center justify-center p-4 md:p-8"
             >
               <div className="text-center max-w-md">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-6 glow-primary">
-                  <Zap className="h-10 w-10 text-primary-foreground" />
+                <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4 md:mb-6 glow-primary">
+                  <Zap className="h-8 w-8 md:h-10 md:w-10 text-primary-foreground" />
                 </div>
-                <h2 className="text-2xl font-bold mb-3 gradient-text">
+                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 gradient-text">
                   Compare AI Responses
                 </h2>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">
                   Select up to 4 AI models and send a prompt to see how each one responds. 
                   Use the Boost feature to enhance your prompts automatically.
                 </p>
-                <div className="flex flex-wrap justify-center gap-2 text-sm">
-                  <span className="px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <div className="flex flex-wrap justify-center gap-2 text-xs md:text-sm">
+                  <span className="px-2 md:px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
                     Real AI streaming
                   </span>
-                  <span className="px-3 py-1 rounded-full bg-accent/10 text-accent border border-accent/20">
+                  <span className="px-2 md:px-3 py-1 rounded-full bg-accent/10 text-accent border border-accent/20">
                     GPT & Gemini models
                   </span>
-                  <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border">
+                  <span className="px-2 md:px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border">
                     Prompt boosting
                   </span>
                 </div>
@@ -217,29 +225,31 @@ export const ChatInterface = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 min-h-0 overflow-hidden"
+              className="flex-1 min-h-0 overflow-hidden flex flex-col"
             >
               {/* User message */}
-              <div className="p-4 border-b border-glass-border/30">
-                <div className="chat-bubble user">
-                  <p className="text-sm">{currentUserMessage}</p>
+              <div className="flex-shrink-0 p-3 md:p-4 border-b border-glass-border/30">
+                <div className="chat-bubble user max-w-full">
+                  <p className="text-sm break-words">{currentUserMessage}</p>
                 </div>
               </div>
 
               {/* Comparison view */}
-              <ComparisonView
-                selectedModels={selectedModels}
-                responses={responses}
-                userMessage={currentUserMessage}
-                onRetry={handleRetry}
-              />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ComparisonView
+                  selectedModels={selectedModels}
+                  responses={responses}
+                  userMessage={currentUserMessage}
+                  onRetry={handleRetry}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       {/* Input */}
-      <div className="flex-shrink-0 p-4 border-t border-glass-border/50">
+      <div className="flex-shrink-0 p-3 md:p-4 border-t border-glass-border/50">
         <ChatInput
           onSend={handleSend}
           onBoost={handleBoost}
