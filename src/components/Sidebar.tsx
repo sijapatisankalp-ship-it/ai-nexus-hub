@@ -18,6 +18,7 @@ type SidebarProps = {
   onNewChat: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  isMobile?: boolean;
 };
 
 const chatHistory = [
@@ -27,25 +28,33 @@ const chatHistory = [
   { id: '4', title: 'Creative writing ideas', date: 'Yesterday' },
 ];
 
-export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarProps) => {
+export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse, isMobile = false }: SidebarProps) => {
   const [activeSection, setActiveSection] = useState<'history' | 'tools'>('history');
+
+  // Mobile sidebar is always expanded inside the sheet
+  const collapsed = isMobile ? false : isCollapsed;
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: isCollapsed ? 72 : 280 }}
+      animate={{ width: isMobile ? '100%' : (collapsed ? 72 : 280) }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="h-screen glass-strong flex flex-col border-r border-glass-border/50 relative"
+      className={cn(
+        "h-screen flex flex-col relative",
+        !isMobile && "glass-strong border-r border-glass-border/50"
+      )}
     >
-      {/* Collapse Toggle */}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onToggleCollapse}
-        className="absolute -right-3 top-6 z-10 h-6 w-6 rounded-full bg-secondary border border-border hover:bg-primary hover:text-primary-foreground"
-      >
-        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-      </Button>
+      {/* Collapse Toggle - Only show on desktop */}
+      {!isMobile && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onToggleCollapse}
+          className="absolute -right-3 top-6 z-10 h-6 w-6 rounded-full bg-secondary border border-border hover:bg-primary hover:text-primary-foreground"
+        >
+          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </Button>
+      )}
 
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
@@ -53,7 +62,7 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
           <Zap className="h-5 w-5 text-primary-foreground" />
         </div>
         <AnimatePresence>
-          {!isCollapsed && (
+          {!collapsed && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -71,12 +80,12 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
       <div className="px-3 mb-4">
         <Button
           variant="glow"
-          className={cn("w-full justify-start gap-2", isCollapsed && "justify-center px-0")}
+          className={cn("w-full justify-start gap-2", collapsed && "justify-center px-0")}
           onClick={onNewChat}
         >
           <Plus className="h-4 w-4" />
           <AnimatePresence>
-            {!isCollapsed && (
+            {!collapsed && (
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -93,21 +102,21 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
       <div className="px-3 mb-2 flex gap-1">
         <Button
           variant={activeSection === 'history' ? 'secondary' : 'ghost'}
-          size={isCollapsed ? 'icon-sm' : 'sm'}
+          size={collapsed ? 'icon-sm' : 'sm'}
           onClick={() => setActiveSection('history')}
-          className={cn("flex-1", isCollapsed && "flex-none")}
+          className={cn("flex-1", collapsed && "flex-none")}
         >
           <History className="h-4 w-4" />
-          {!isCollapsed && <span className="ml-2">History</span>}
+          {!collapsed && <span className="ml-2">History</span>}
         </Button>
         <Button
           variant={activeSection === 'tools' ? 'secondary' : 'ghost'}
-          size={isCollapsed ? 'icon-sm' : 'sm'}
+          size={collapsed ? 'icon-sm' : 'sm'}
           onClick={() => setActiveSection('tools')}
-          className={cn("flex-1", isCollapsed && "flex-none")}
+          className={cn("flex-1", collapsed && "flex-none")}
         >
           <Wrench className="h-4 w-4" />
-          {!isCollapsed && <span className="ml-2">Tools</span>}
+          {!collapsed && <span className="ml-2">Tools</span>}
         </Button>
       </div>
 
@@ -129,13 +138,13 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                   className={cn(
-                    "w-full text-left p-2 rounded-lg hover:bg-secondary/60 transition-colors group",
-                    isCollapsed && "flex items-center justify-center"
+                    "w-full text-left p-2 rounded-lg hover:bg-secondary/60 transition-colors group flex items-center",
+                    collapsed && "justify-center"
                   )}
                 >
                   <MessageSquare className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0" />
-                  {!isCollapsed && (
-                    <div className="ml-2 overflow-hidden">
+                  {!collapsed && (
+                    <div className="ml-2 overflow-hidden min-w-0 flex-1">
                       <p className="text-sm truncate">{chat.title}</p>
                       <p className="text-xs text-muted-foreground">{chat.date}</p>
                     </div>
@@ -155,13 +164,13 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
             >
               <button className={cn(
                 "w-full text-left p-3 rounded-lg glass hover:border-primary/40 transition-all group",
-                isCollapsed && "flex items-center justify-center p-2"
+                collapsed && "flex items-center justify-center p-2"
               )}>
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
                     <Sparkles className="h-4 w-4 text-primary" />
                   </div>
-                  {!isCollapsed && (
+                  {!collapsed && (
                     <div>
                       <p className="text-sm font-medium">Prompt Boost</p>
                       <p className="text-xs text-muted-foreground">Enhance your prompts</p>
@@ -172,13 +181,13 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
 
               <button className={cn(
                 "w-full text-left p-3 rounded-lg glass hover:border-primary/40 transition-all group",
-                isCollapsed && "flex items-center justify-center p-2"
+                collapsed && "flex items-center justify-center p-2"
               )}>
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
                     <Settings className="h-4 w-4 text-accent" />
                   </div>
-                  {!isCollapsed && (
+                  {!collapsed && (
                     <div>
                       <p className="text-sm font-medium">Settings</p>
                       <p className="text-xs text-muted-foreground">Configure AI models</p>
@@ -192,7 +201,7 @@ export const Sidebar = ({ onNewChat, isCollapsed, onToggleCollapse }: SidebarPro
       </div>
 
       {/* Footer */}
-      {!isCollapsed && (
+      {!collapsed && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

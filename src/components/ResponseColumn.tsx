@@ -37,7 +37,7 @@ export const ResponseColumn = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex-1 min-w-[280px] flex flex-col glass rounded-xl overflow-hidden"
+      className="h-full min-w-[280px] flex flex-col glass rounded-xl overflow-hidden"
     >
       {/* Model Header */}
       <div className={cn(
