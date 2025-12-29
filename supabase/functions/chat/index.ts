@@ -33,7 +33,7 @@ const messageSchema = z.object({
 
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "At least one message required").max(50, "Too many messages"),
-  modelId: z.enum(['gpt-4o', 'claude-sonnet', 'gemini-pro', 'deepseek']),
+  modelId: z.enum(['gpt-4o', 'claude-sonnet', 'gemini-pro', 'deepseek', 'qwen3']),
   systemPrompt: z.string().max(4000, "System prompt too long").optional()
 });
 
@@ -43,6 +43,12 @@ const MODEL_MAP: Record<string, string> = {
   'claude-sonnet': 'google/gemini-2.5-flash',
   'gemini-pro': 'google/gemini-2.5-pro',
   'deepseek': 'google/gemini-2.5-flash-lite',
+};
+
+// Bytez model IDs
+const BYTEZ_MODELS = ['qwen3'];
+const BYTEZ_MODEL_MAP: Record<string, string> = {
+  'qwen3': 'Qwen/Qwen3-4B-Instruct-2507',
 };
 
 serve(async (req) => {
@@ -77,6 +83,61 @@ serve(async (req) => {
     
     console.log(`Chat request for model: ${modelId}`);
     
+    // Check if this is a Bytez model
+    if (BYTEZ_MODELS.includes(modelId)) {
+      const BYTEZ_API_KEY = Deno.env.get('BYTEZ_API_KEY');
+      if (!BYTEZ_API_KEY) {
+        throw new Error('BYTEZ_API_KEY is not configured');
+      }
+
+      const bytezModel = BYTEZ_MODEL_MAP[modelId];
+      console.log(`Using Bytez model: ${bytezModel}`);
+
+      // Call Bytez API
+      const bytezResponse = await fetch(`https://api.bytez.com/model/run/${encodeURIComponent(bytezModel)}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${BYTEZ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt || 'You are a helpful AI assistant. Be concise and clear in your responses.' },
+            ...messages,
+          ],
+        }),
+      });
+
+      if (!bytezResponse.ok) {
+        const errorText = await bytezResponse.text();
+        console.error(`Bytez API error: ${bytezResponse.status}`, errorText);
+        return new Response(JSON.stringify({ error: 'Bytez AI service error. Please try again.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const bytezData = await bytezResponse.json();
+      console.log('Bytez response:', JSON.stringify(bytezData));
+
+      // Convert Bytez response to SSE format for consistency
+      const content = bytezData.output?.content || bytezData.output?.message?.content || 
+                      (typeof bytezData.output === 'string' ? bytezData.output : JSON.stringify(bytezData.output));
+      
+      const sseData = `data: ${JSON.stringify({
+        choices: [{ delta: { content } }]
+      })}\n\ndata: [DONE]\n\n`;
+
+      return new Response(sseData, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+      });
+    }
+
+    // Lovable AI models
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
