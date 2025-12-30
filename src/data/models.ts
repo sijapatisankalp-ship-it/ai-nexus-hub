@@ -33,14 +33,6 @@ export const AI_MODELS: AIModel[] = [
     color: 'from-purple-500 to-violet-600',
     description: 'Advanced coding and reasoning',
   },
-  {
-    id: 'qwen3',
-    name: 'Qwen3 4B',
-    provider: 'Bytez',
-    icon: '🔴',
-    color: 'from-red-500 to-rose-600',
-    description: 'Fast instruction-tuned model',
-  },
 ];
 
 export const PROJECT_MODES: ProjectMode[] = [
