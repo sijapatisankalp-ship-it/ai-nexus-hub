@@ -9,10 +9,12 @@ import {
   Sparkles,
   Settings,
   Zap,
-  Trash2
+  Trash2,
+  LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { User } from '@supabase/supabase-js';
 
 export type ChatHistoryItem = {
   id: string;
@@ -34,6 +36,8 @@ type SidebarProps = {
   usageLimit: number;
   activeSection: 'history' | 'tools';
   onSectionChange: (section: 'history' | 'tools') => void;
+  user?: User | null;
+  onSignOut?: () => void;
 };
 
 export const Sidebar = ({ 
@@ -48,7 +52,9 @@ export const Sidebar = ({
   usageCount,
   usageLimit,
   activeSection,
-  onSectionChange
+  onSectionChange,
+  user,
+  onSignOut
 }: SidebarProps) => {
   // Mobile sidebar is always expanded inside the sheet
   const collapsed = isMobile ? false : isCollapsed;
@@ -256,8 +262,44 @@ export const Sidebar = ({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="p-4 border-t border-glass-border/50"
+          className="p-4 border-t border-glass-border/50 space-y-3"
         >
+          {/* User Info */}
+          {user && (
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+                {user.user_metadata?.avatar_url ? (
+                  <img 
+                    src={user.user_metadata.avatar_url} 
+                    alt="Avatar" 
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs font-medium text-primary-foreground">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+              {onSignOut && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onSignOut}
+                  className="flex-shrink-0 hover:bg-destructive/20 hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Usage Stats */}
           <div className="glass rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <div className={cn(

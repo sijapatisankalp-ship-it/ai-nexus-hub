@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Sidebar, ChatHistoryItem } from '@/components/Sidebar';
 import { ChatInterface } from '@/components/ChatInterface';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 
 const DAILY_LIMIT = 50;
 
@@ -16,6 +18,20 @@ const Index = () => {
   const [usageCount, setUsageCount] = useState(0);
   const [activeSection, setActiveSection] = useState<'history' | 'tools'>('history');
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { user, loading, signOut } = useAuth();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    navigate('/auth', { replace: true });
+  }, [signOut, navigate]);
 
   const handleNewChat = useCallback(() => {
     const newId = Date.now().toString();
@@ -58,6 +74,15 @@ const Index = () => {
     }
   }, [activeChatId]);
 
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background w-full">
       {/* Decorative background elements */}
@@ -93,6 +118,8 @@ const Index = () => {
               usageLimit={DAILY_LIMIT}
               activeSection={activeSection}
               onSectionChange={setActiveSection}
+              user={user}
+              onSignOut={handleSignOut}
             />
           </SheetContent>
         </Sheet>
@@ -111,6 +138,8 @@ const Index = () => {
           usageLimit={DAILY_LIMIT}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
+          user={user}
+          onSignOut={handleSignOut}
         />
       )}
 
