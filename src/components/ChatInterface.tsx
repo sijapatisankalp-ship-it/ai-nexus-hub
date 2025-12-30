@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
@@ -13,9 +13,17 @@ import { cn } from '@/lib/utils';
 
 type ChatInterfaceProps = {
   isMobile?: boolean;
+  onAddToHistory?: (title: string) => void;
+  onIncrementUsage?: () => void;
+  activeChatId?: string;
 };
 
-export const ChatInterface = ({ isMobile = false }: ChatInterfaceProps) => {
+export const ChatInterface = ({ 
+  isMobile = false, 
+  onAddToHistory,
+  onIncrementUsage,
+  activeChatId
+}: ChatInterfaceProps) => {
   const [selectedModels, setSelectedModels] = useState<string[]>(['gpt-4o', 'claude-sonnet']);
   const [projectMode, setProjectMode] = useState('general');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -23,6 +31,15 @@ export const ChatInterface = ({ isMobile = false }: ChatInterfaceProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentUserMessage, setCurrentUserMessage] = useState('');
   const { toast } = useToast();
+
+  // Reset when activeChatId changes (new chat)
+  useEffect(() => {
+    if (!activeChatId) {
+      setMessages([]);
+      setResponses({});
+      setCurrentUserMessage('');
+    }
+  }, [activeChatId]);
 
   const handleToggleModel = (modelId: string) => {
     setSelectedModels(prev => 
@@ -96,6 +113,12 @@ export const ChatInterface = ({ isMobile = false }: ChatInterfaceProps) => {
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMessage]);
+
+    // Add to chat history with the message as title
+    onAddToHistory?.(message);
+    
+    // Increment usage count
+    onIncrementUsage?.();
 
     // Initialize streaming state for all selected models
     selectedModels.forEach(modelId => {

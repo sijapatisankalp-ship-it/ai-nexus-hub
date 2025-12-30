@@ -1,21 +1,62 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Menu } from 'lucide-react';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar, ChatHistoryItem } from '@/components/Sidebar';
 import { ChatInterface } from '@/components/ChatInterface';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+const DAILY_LIMIT = 50;
+
 const Index = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [chatKey, setChatKey] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | undefined>();
+  const [usageCount, setUsageCount] = useState(0);
+  const [activeSection, setActiveSection] = useState<'history' | 'tools'>('history');
   const isMobile = useIsMobile();
 
-  const handleNewChat = () => {
-    setChatKey(prev => prev + 1);
+  const handleNewChat = useCallback(() => {
+    const newId = Date.now().toString();
+    setActiveChatId(newId);
     setMobileMenuOpen(false);
-  };
+  }, []);
+
+  const handleAddToHistory = useCallback((title: string) => {
+    const newChat: ChatHistoryItem = {
+      id: activeChatId || Date.now().toString(),
+      title: title.length > 40 ? title.slice(0, 40) + '...' : title,
+      date: 'Just now',
+      timestamp: new Date(),
+    };
+    
+    setChatHistory(prev => {
+      const exists = prev.find(c => c.id === newChat.id);
+      if (exists) {
+        return prev.map(c => c.id === newChat.id ? { ...c, title: newChat.title } : c);
+      }
+      return [newChat, ...prev];
+    });
+    
+    setActiveChatId(newChat.id);
+  }, [activeChatId]);
+
+  const handleIncrementUsage = useCallback(() => {
+    setUsageCount(prev => prev + 1);
+  }, []);
+
+  const handleSelectChat = useCallback((id: string) => {
+    setActiveChatId(id);
+    setMobileMenuOpen(false);
+  }, []);
+
+  const handleDeleteChat = useCallback((id: string) => {
+    setChatHistory(prev => prev.filter(c => c.id !== id));
+    if (activeChatId === id) {
+      setActiveChatId(undefined);
+    }
+  }, [activeChatId]);
 
   return (
     <div className="flex min-h-screen bg-background w-full">
@@ -44,6 +85,14 @@ const Index = () => {
               isCollapsed={false}
               onToggleCollapse={() => {}}
               isMobile={true}
+              chatHistory={chatHistory}
+              onSelectChat={handleSelectChat}
+              onDeleteChat={handleDeleteChat}
+              activeChatId={activeChatId}
+              usageCount={usageCount}
+              usageLimit={DAILY_LIMIT}
+              activeSection={activeSection}
+              onSectionChange={setActiveSection}
             />
           </SheetContent>
         </Sheet>
@@ -54,12 +103,25 @@ const Index = () => {
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           isMobile={false}
+          chatHistory={chatHistory}
+          onSelectChat={handleSelectChat}
+          onDeleteChat={handleDeleteChat}
+          activeChatId={activeChatId}
+          usageCount={usageCount}
+          usageLimit={DAILY_LIMIT}
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
         />
       )}
 
       {/* Main Content */}
       <main className="flex-1 relative z-10 w-full min-w-0">
-        <ChatInterface key={chatKey} isMobile={isMobile} />
+        <ChatInterface 
+          isMobile={isMobile}
+          onAddToHistory={handleAddToHistory}
+          onIncrementUsage={handleIncrementUsage}
+          activeChatId={activeChatId}
+        />
       </main>
     </div>
   );
